@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor Juliancho — Cloud</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f7;color:#1a1a1a;font-size:14px}
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{background:#1B3A6B;color:#fff;padding:0;display:flex;flex-direction:column}
+.sidebar-head{padding:20px 18px 12px}
+.sidebar-title{font-size:16px;font-weight:600;color:#fff;margin-bottom:2px}
+.sidebar-sub{font-size:11px;color:#7A9CC8}
+.sync-status{font-size:10px;margin-top:6px;padding:3px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;font-weight:500}
+.sync-ok{background:#1a4d2a;color:#6fcf97}
+.sync-err{background:#4d1a1a;color:#eb5757}
+.sync-loading{background:#2a3d4d;color:#7A9CC8}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.sidebar-divider{height:0.5px;background:#2E5090;margin:0 18px}
+.nav-section{padding:14px 12px 6px}
+.nav-label{font-size:10px;color:#7A9CC8;text-transform:uppercase;letter-spacing:.07em;padding:0 6px;margin-bottom:6px}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;border:none;background:none;color:#B8D0EE;font-size:13px;cursor:pointer;transition:all .15s;text-align:left}
+.nav-btn:hover{background:#2A4F8A;color:#fff}
+.nav-btn.active{background:#2E6DB4;color:#fff;font-weight:500}
+.nav-count{margin-left:auto;background:#2A4F8A;color:#A8C8F0;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600}
+.nav-btn.active .nav-count{background:#185FA5;color:#fff}
+.sidebar-stats{margin-top:auto;padding:14px 18px;border-top:0.5px solid #2E5090}
+.s-stat{display:flex;justify-content:space-between;font-size:12px;color:#7A9CC8;margin-bottom:6px}
+.s-stat span:last-child{color:#fff;font-weight:500}
+.prog-wrap{height:4px;background:#2A4F8A;border-radius:2px;margin-top:8px}
+.prog-fill{height:4px;background:#2E6DB4;border-radius:2px;transition:width .4s}
+
+/* MAIN */
+.main{display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:#fff;border-bottom:0.5px solid #e0e0e0;padding:14px 24px;display:flex;align-items:center;gap:16px}
+.topbar-title{font-size:16px;font-weight:600;color:#1a1a1a;flex:1}
+.topbar-date{font-size:12px;color:#888}
+.btn{padding:7px 16px;border-radius:8px;border:0.5px solid #ccc;background:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;color:#333}
+.btn:hover{background:#f5f5f5}
+.btn-primary{background:#185FA5;color:#fff;border-color:#185FA5}
+.btn-primary:hover{background:#0C447C}
+.btn-danger{background:#FCEBEB;color:#791F1F;border-color:#F7C1C1}
+.btn-sm{padding:4px 10px;font-size:12px}
+.content{flex:1;padding:20px 24px}
+
+/* CONFIG BANNER */
+.config-banner{background:#FAEEDA;border:0.5px solid #FAC775;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:none}
+.config-banner.show{display:block}
+.config-banner h3{font-size:14px;font-weight:600;color:#633806;margin-bottom:8px}
+.config-banner p{font-size:13px;color:#7A4010;margin-bottom:10px;line-height:1.6}
+.config-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.config-field{flex:1;min-width:200px}
+.config-label{font-size:11px;color:#854F0B;margin-bottom:4px;font-weight:500}
+input.config-input{width:100%;height:34px;border:0.5px solid #FAC775;border-radius:7px;padding:0 10px;font-size:12px;font-family:monospace;background:#fff}
+
+/* VIEWS */
+.view{display:none}
+.view.active{display:block}
+
+/* TASK CARDS */
+.tasks-list{display:flex;flex-direction:column;gap:8px}
+.task-card{background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;transition:border-color .15s}
+.task-card:hover{border-color:#b0c8e8}
+.task-card.done-card{opacity:.55}
+.check-box{width:20px;height:20px;border-radius:5px;border:1.5px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.check-box.checked{background:#3B6D11;border-color:#3B6D11}
+.check-svg{display:none}
+.check-box.checked .check-svg{display:block}
+.prio-bar{width:3px;height:36px;border-radius:2px;flex-shrink:0}
+.prio-high{background:#E24B4A}.prio-med{background:#EF9F27}.prio-low{background:#639922}
+.task-body{flex:1;min-width:0}
+.task-name{font-size:14px;font-weight:500;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-card.done-card .task-name{text-decoration:line-through;color:#aaa}
+.task-meta{display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap}
+.tag-pill{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}
+.tag-cenicana{background:#E6F1FB;color:#0C447C}
+.tag-maestria{background:#FAEEDA;color:#633806}
+.tag-personal{background:#EAF3DE;color:#27500A}
+.tag-empleo{background:#EEEDFE;color:#3C3489}
+.tag-otro{background:#F1EFE8;color:#444}
+.date-label{font-size:11px;color:#888}
+.date-label.overdue{color:#E24B4A;font-weight:500}
+.date-label.today{color:#3B6D11;font-weight:500}
+.task-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.pct-mini-wrap{display:flex;align-items:center;gap:6px}
+.pct-mini-bar{width:60px;height:5px;background:#f0f0f0;border-radius:3px;overflow:hidden}
+.pct-mini-fill{height:5px;border-radius:3px;background:#185FA5;transition:width .2s}
+.pct-mini-fill.done{background:#3B6D11}
+.pct-mini-num{font-size:11px;color:#888;min-width:28px}
+.icon-btn{background:none;border:none;cursor:pointer;color:#ccc;font-size:15px;padding:2px 5px;transition:color .15s;line-height:1}
+.icon-btn:hover{color:#E24B4A}
+.icon-btn.edit-btn:hover{color:#185FA5}
+
+/* FILTERS */
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:5px 14px;border-radius:20px;border:0.5px solid #ccc;background:#fff;font-size:12px;cursor:pointer;color:#555;transition:all .15s}
+.filter-btn.active{background:#185FA5;color:#fff;border-color:#185FA5}
+.filter-select{height:32px;padding:0 10px;border-radius:20px;border:0.5px solid #ccc;background:#fff;font-size:12px;color:#555}
+.search-input{height:32px;padding:0 12px;border-radius:20px;border:0.5px solid #ccc;background:#fff;font-size:12px;width:200px}
+
+/* BACKLOG */
+.bl-section{margin-bottom:24px}
+.bl-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bl-head-title{font-size:13px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.05em}
+.bl-count{font-size:11px;color:#888;background:#f0f0f0;padding:2px 8px;border-radius:20px}
+
+/* AGENDA */
+.agenda-grid{display:flex;flex-direction:column;gap:16px}
+.agenda-day{background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;overflow:hidden}
+.agenda-day-head{padding:10px 16px;background:#f8f9fb;border-bottom:0.5px solid #e8e8e8;display:flex;align-items:center;gap:10px}
+.agenda-day-name{font-size:13px;font-weight:600;color:#1a1a1a}
+.agenda-day-name.today-head{color:#185FA5}
+.agenda-day-count{font-size:11px;color:#888;margin-left:auto}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;padding:16px;text-align:center}
+.stat-num{font-size:28px;font-weight:600;color:#185FA5;line-height:1}
+.stat-lbl{font-size:11px;color:#888;margin-top:4px}
+.cat-breakdown{background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;padding:16px}
+.cat-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.cat-row:last-child{margin-bottom:0}
+.cat-name{font-size:13px;min-width:130px;color:#555}
+.cat-bar-bg{flex:1;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden}
+.cat-bar-fill{height:8px;border-radius:4px;transition:width .4s}
+.cat-pct{font-size:12px;color:#888;min-width:36px;text-align:right}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:48px 24px;color:#bbb}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-text{font-size:14px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:200}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:16px}
+.modal-field{margin-bottom:12px}
+.modal-label{font-size:12px;color:#888;margin-bottom:4px}
+input[type=text],input[type=date],select,textarea{width:100%;border:0.5px solid #ccc;border-radius:7px;padding:0 10px;height:34px;font-size:13px;color:#1a1a1a;background:#fff;outline:none;font-family:inherit;transition:border .15s}
+input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{border-color:#185FA5}
+textarea{height:70px;padding:8px 10px;resize:none}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* SPINNER */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:14px;height:14px;border:2px solid #7A9CC8;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+<div class="layout">
+<div class="sidebar">
+  <div class="sidebar-head">
+    <div class="sidebar-title">Juliancho</div>
+    <div class="sidebar-sub">Gestor de tareas · Cloud</div>
+    <div class="sync-status sync-loading" id="sync-status">
+      <span class="sync-dot"></span> <span id="sync-text">Conectando...</span>
+    </div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-section">
+    <div class="nav-label">Vistas</div>
+    <button class="nav-btn active" onclick="showView('hoy')">
+      <span>📅</span> Hoy <span class="nav-count" id="nc-hoy">0</span>
+    </button>
+    <button class="nav-btn" onclick="showView('semana')">
+      <span>📆</span> Esta semana <span class="nav-count" id="nc-semana">0</span>
+    </button>
+    <button class="nav-btn" onclick="showView('agenda')">
+      <span>🗓</span> Agenda <span class="nav-count" id="nc-agenda">0</span>
+    </button>
+    <button class="nav-btn" onclick="showView('backlog')">
+      <span>📋</span> Backlog <span class="nav-count" id="nc-backlog">0</span>
+    </button>
+    <button class="nav-btn" onclick="showView('stats')">
+      <span>📊</span> Estadísticas
+    </button>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-section">
+    <div class="nav-label">Categorías</div>
+    <button class="nav-btn" onclick="filterCat('Cenicaña')"><span>🏢</span> Cenicaña</button>
+    <button class="nav-btn" onclick="filterCat('Maestría')"><span>🎓</span> Maestría</button>
+    <button class="nav-btn" onclick="filterCat('Búsqueda empleo')"><span>💼</span> Búsqueda empleo</button>
+    <button class="nav-btn" onclick="filterCat('Personal')"><span>🏠</span> Personal</button>
+  </div>
+  <div class="sidebar-stats">
+    <div class="s-stat"><span>Completadas hoy</span><span id="ss-hoy">0</span></div>
+    <div class="s-stat"><span>Avance global</span><span id="ss-pct">0%</span></div>
+    <div class="prog-wrap"><div class="prog-fill" id="ss-bar" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Hoy</div>
+    <div class="topbar-date" id="topbar-date"></div>
+    <button class="btn btn-primary" onclick="openModal()">+ Nueva tarea</button>
+  </div>
+  <div class="content">
+
+    <!-- CONFIG BANNER -->
+    <div class="config-banner" id="config-banner">
+      <h3>⚙️ Conectar con Supabase — 1 vez solamente</h3>
+      <p>Pega aquí tu <strong>Project URL</strong> y tu <strong>anon key</strong> de Supabase (Settings → API). Se guardan localmente y no hay que repetirlo.</p>
+      <div class="config-row">
+        <div class="config-field">
+          <div class="config-label">Project URL</div>
+          <input class="config-input" type="text" id="cfg-url" placeholder="https://xxxxxxxxxxxx.supabase.co">
+        </div>
+        <div class="config-field">
+          <div class="config-label">Anon Key</div>
+          <input class="config-input" type="text" id="cfg-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6...">
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()">Conectar</button>
+      </div>
+    </div>
+
+    <!-- VIEW: HOY -->
+    <div class="view active" id="view-hoy">
+      <div class="filters">
+        <button class="filter-btn active" onclick="setFilter('all',this)">Todas</button>
+        <button class="filter-btn" onclick="setFilter('pending',this)">Pendientes</button>
+        <button class="filter-btn" onclick="setFilter('done',this)">Completadas</button>
+        <input class="search-input" type="text" placeholder="Buscar..." oninput="renderAll()" id="search-hoy">
+      </div>
+      <div class="tasks-list" id="list-hoy"></div>
+    </div>
+
+    <!-- VIEW: SEMANA -->
+    <div class="view" id="view-semana">
+      <div class="filters">
+        <button class="filter-btn active" onclick="setFilter('all',this)">Todas</button>
+        <button class="filter-btn" onclick="setFilter('pending',this)">Pendientes</button>
+        <select class="filter-select" onchange="renderAll()" id="cat-filter">
+          <option value="">Todas las categorías</option>
+          <option>Cenicaña</option><option>Maestría</option>
+          <option>Búsqueda empleo</option><option>Personal</option>
+        </select>
+      </div>
+      <div class="tasks-list" id="list-semana"></div>
+    </div>
+
+    <!-- VIEW: AGENDA -->
+    <div class="view" id="view-agenda">
+      <div class="agenda-grid" id="agenda-grid"></div>
+    </div>
+
+    <!-- VIEW: BACKLOG -->
+    <div class="view" id="view-backlog">
+      <div class="filters">
+        <input class="search-input" type="text" placeholder="Buscar en backlog..." oninput="renderAll()" id="bl-search">
+        <select class="filter-select" onchange="renderAll()" id="bl-cat">
+          <option value="">Todas las categorías</option>
+          <option>Cenicaña</option><option>Maestría</option>
+          <option>Búsqueda empleo</option><option>Personal</option>
+        </select>
+      </div>
+      <div id="backlog-body"></div>
+    </div>
+
+    <!-- VIEW: STATS -->
+    <div class="view" id="view-stats">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-num" id="st-total">0</div><div class="stat-lbl">Tareas totales</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-done">0</div><div class="stat-lbl">Completadas</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-pend">0</div><div class="stat-lbl">Pendientes</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-pct" style="color:#3B6D11">0%</div><div class="stat-lbl">Avance global</div></div>
+      </div>
+      <div class="cat-breakdown" id="cat-breakdown"></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOverlay(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Nueva tarea</div>
+    <div class="modal-field">
+      <div class="modal-label">Nombre *</div>
+      <input type="text" id="m-name" placeholder="¿Qué hay que hacer?">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <div class="modal-label">Categoría</div>
+        <select id="m-cat">
+          <option>Cenicaña</option><option>Maestría</option>
+          <option>Búsqueda empleo</option><option>Personal</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Prioridad</div>
+        <select id="m-prio">
+          <option value="high">Alta</option>
+          <option value="med" selected>Media</option>
+          <option value="low">Baja</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <div class="modal-label">Fecha</div>
+        <input type="date" id="m-date">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">% Avance — <span id="m-pct-lbl">0%</span></div>
+        <input type="range" id="m-pct" min="0" max="100" step="5" value="0" style="margin-top:10px;accent-color:#185FA5;width:100%">
+      </div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Notas</div>
+      <textarea id="m-notes" placeholder="Contexto, subtareas, links..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger btn-sm" id="btn-delete-modal" style="display:none" onclick="deleteFromModal()">Eliminar</button>
+      <button class="btn btn-primary" id="btn-save-modal" onclick="saveTask()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const CFG_KEY = 'sb_config_juliancho';
+let SB_URL = 'https://dyhzujibxurnodcuqivw.supabase.co';
+let SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5aHp1amlieHVybm9kY3VxaXZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNzMyMTQsImV4cCI6MjA5Mzc0OTIxNH0.z8EMTkM_0HGTB7Y7oXkNElaHKNFagSrdZdxsxdvr34U';
+let tasks = [];
+let editingId = null;
+let currentFilter = 'all';
+let currentCatFilter = '';
+let currentView = 'hoy';
+
+function loadConfig(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CFG_KEY)||'{}');
+    SB_URL = c.url||''; SB_KEY = c.key||'';
+    if(SB_URL && SB_KEY){
+      document.getElementById('cfg-url').value = SB_URL;
+      document.getElementById('cfg-key').value = SB_KEY;
+    }
+  }catch(e){}
+}
+
+function saveConfig(){
+  SB_URL = document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
+  SB_KEY = document.getElementById('cfg-key').value.trim();
+  if(!SB_URL || !SB_KEY){ alert('Completa los dos campos.'); return; }
+  localStorage.setItem(CFG_KEY, JSON.stringify({url:SB_URL, key:SB_KEY}));
+  document.getElementById('config-banner').classList.remove('show');
+  initSupabase();
+}
+
+// ── SUPABASE REST API ───────────────────────────────────────────────────────
+function sbHeaders(){
+  return {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+}
+const TABLE = '/rest/v1/tasks';
+
+async function sbFetch(method, path, body){
+  const opts = {method, headers:sbHeaders()};
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(SB_URL+path, opts);
+  if(!r.ok){ const e=await r.text(); throw new Error(e); }
+  if(r.status===204) return null;
+  return r.json();
+}
+
+async function fetchTasks(){
+  setSyncStatus('loading','Sincronizando...');
+  try{
+    const data = await sbFetch('GET', TABLE+'?order=created_at.desc&select=*');
+    tasks = data || [];
+    setSyncStatus('ok','Sincronizado ✓');
+    renderAll();
+  }catch(e){
+    setSyncStatus('err','Sin conexión');
+    loadLocal();
+  }
+}
+
+async function createTask(t){
+  try{
+    const rows = await sbFetch('POST', TABLE+'?select=*', [t]);
+    if(rows && rows[0]) tasks.unshift(rows[0]);
+    setSyncStatus('ok','Guardado ✓');
+  }catch(e){
+    setSyncStatus('err','Error al guardar');
+    tasks.unshift({...t, id:uid()});
+  }
+  saveLocal(); renderAll();
+}
+
+async function updateTask(id, changes){
+  try{
+    await sbFetch('PATCH', TABLE+'?id=eq.'+id, changes);
+    setSyncStatus('ok','Actualizado ✓');
+  }catch(e){ setSyncStatus('err','Error al actualizar'); }
+  const idx = tasks.findIndex(t=>t.id===id);
+  if(idx!==-1) tasks[idx]={...tasks[idx],...changes};
+  saveLocal(); renderAll();
+}
+
+async function deleteTask(id){
+  try{
+    await sbFetch('DELETE', TABLE+'?id=eq.'+id, null);
+    setSyncStatus('ok','Eliminado ✓');
+  }catch(e){ setSyncStatus('err','Error al eliminar'); }
+  tasks = tasks.filter(t=>t.id!==id);
+  saveLocal(); renderAll();
+}
+
+// ── LOCAL FALLBACK ─────────────────────────────────────────────────────────
+const LOCAL_KEY = 'tasks_juliancho_local';
+function saveLocal(){ localStorage.setItem(LOCAL_KEY, JSON.stringify(tasks)); }
+function loadLocal(){
+  try{ tasks = JSON.parse(localStorage.getItem(LOCAL_KEY)||'[]'); }catch(e){ tasks=[]; }
+  if(!tasks.length) seedData();
+  renderAll();
+}
+
+function setSyncStatus(type, text){
+  const el = document.getElementById('sync-status');
+  el.className = 'sync-status sync-'+type;
+  document.getElementById('sync-text').textContent = text;
+}
+
+async function initSupabase(){
+  if(!SB_URL||!SB_KEY){
+    setSyncStatus('err','Sin configurar');
+    loadLocal(); return;
+  }
+  // Ensure table exists via check — if fails, show setup instructions
+  try{
+    await fetchTasks();
+  }catch(e){
+    setSyncStatus('err','Error de conexión');
+    loadLocal();
+  }
+}
+
+// ── SEED DATA ──────────────────────────────────────────────────────────────
+let _uid = Date.now();
+function uid(){ return 't'+(++_uid); }
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function offsetDate(base,n){
+  const d=new Date(base+'T12:00:00'); d.setDate(d.getDate()+n);
+  return d.toISOString().split('T')[0];
+}
+
+function seedData(){
+  const t = todayStr(), tom = offsetDate(t,1), d2 = offsetDate(t,2);
+  tasks = [
+    {id:uid(),name:"Compras Red Calidad Aire",cat:"Cenicaña",prio:"high",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Compras Red IoT",cat:"Cenicaña",prio:"high",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Despacho equipo para calibración",cat:"Cenicaña",prio:"high",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Solicitar permiso de trabajo en RP",cat:"Cenicaña",prio:"high",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Revisión tareas del personal",cat:"Cenicaña",prio:"med",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Llenar formato sistema de gestión",cat:"Cenicaña",prio:"med",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Gestionar tareas equipo en herramienta",cat:"Cenicaña",prio:"med",date:t,pct:0,done:false,notes:""},
+    {id:uid(),name:"Modelo FlexSim — completar al 100%",cat:"Maestría",prio:"high",date:t,pct:75,done:false,notes:"Entrega antes de clase 7pm"},
+    {id:uid(),name:"Revisión matriz TSA",cat:"Cenicaña",prio:"med",date:tom,pct:0,done:false,notes:""},
+    {id:uid(),name:"Rediseñar estructura área Redes",cat:"Cenicaña",prio:"low",date:tom,pct:0,done:false,notes:"Tarea estratégica — bloque de foco"},
+    {id:uid(),name:"Iniciar análisis datos PM10",cat:"Cenicaña",prio:"low",date:tom,pct:0,done:false,notes:""},
+    {id:uid(),name:"Sesión trabajo de grado / inglés",cat:"Maestría",prio:"med",date:tom,pct:0,done:false,notes:"Bloque nocturno 9-11pm"},
+    {id:uid(),name:"Actualizar LinkedIn — perfil técnico",cat:"Búsqueda empleo",prio:"med",date:d2,pct:0,done:false,notes:""},
+  ];
+  saveLocal();
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+const CATS = {'Cenicaña':'tag-cenicana','Maestría':'tag-maestria','Personal':'tag-personal','Búsqueda empleo':'tag-empleo','Otro':'tag-otro'};
+const PRIO_COLORS = {high:'prio-high',med:'prio-med',low:'prio-low'};
+const CAT_COLORS = {'Cenicaña':'#185FA5','Maestría':'#854F0B','Personal':'#3B6D11','Búsqueda empleo':'#533FB7','Otro':'#5F5E5A'};
+
+function fmtDate(str){
+  if(!str)return'Sin fecha';
+  const [y,m,d]=str.split('-');
+  const months=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]}`;
+}
+function fmtDayName(str){
+  if(!str)return'';
+  const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  return days[new Date(str+'T12:00:00').getDay()];
+}
+function dateClass(str){ if(!str)return''; const t=todayStr(); if(str<t)return'overdue'; if(str===t)return'today'; return''; }
+function dateLabel(str){
+  if(!str)return'Sin fecha'; const t=todayStr();
+  if(str===t)return'Hoy';
+  if(str===offsetDate(t,1))return'Mañana';
+  if(str<t)return'Vencida: '+fmtDate(str);
+  return fmtDayName(str)+' '+fmtDate(str);
+}
+function prioVal(t){ return t.prio==='high'?3:t.prio==='med'?2:1; }
+function thisWeekRange(){
+  const now=new Date(), day=now.getDay()||7;
+  const mon=new Date(now); mon.setDate(now.getDate()-day+1);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  return [mon.toISOString().split('T')[0], sun.toISOString().split('T')[0]];
+}
+
+function makeCard(t){
+  const card=document.createElement('div');
+  card.className='task-card'+(t.done?' done-card':'');
+  card.innerHTML=`
+    <div class="check-box${t.done?' checked':''}" onclick="toggleDone('${t.id}',${t.done})">
+      <svg class="check-svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <polyline points="2,6 5,9 10,3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="prio-bar ${PRIO_COLORS[t.prio]||'prio-low'}"></div>
+    <div class="task-body">
+      <div class="task-name" title="${t.name}">${t.name}</div>
+      <div class="task-meta">
+        <span class="tag-pill ${CATS[t.cat]||'tag-otro'}">${t.cat}</span>
+        <span class="date-label ${dateClass(t.date)}">${dateLabel(t.date)}</span>
+        ${t.notes?'<span style="font-size:10px;color:#bbb">📝</span>':''}
+      </div>
+    </div>
+    <div class="task-actions">
+      <div class="pct-mini-wrap">
+        <div class="pct-mini-bar"><div class="pct-mini-fill${t.done?' done':''}" style="width:${t.pct||0}%"></div></div>
+        <div class="pct-mini-num">${t.pct||0}%</div>
+      </div>
+      <button class="icon-btn edit-btn" onclick="openModal('${t.id}')" title="Editar">✏️</button>
+    </div>`;
+  return card;
+}
+
+function renderAll(){
+  const today=todayStr();
+  const [wMon,wSun]=thisWeekRange();
+  const search=(document.getElementById('search-hoy')||{value:''}).value.toLowerCase();
+  const catF=(document.getElementById('cat-filter')||{value:''}).value||
+              (document.getElementById('bl-cat')||{value:''}).value||currentCatFilter||'';
+
+  const filtered=tasks.filter(t=>{
+    if(search&&!t.name.toLowerCase().includes(search))return false;
+    if(catF&&t.cat!==catF)return false;
+    if(currentFilter==='pending'&&t.done)return false;
+    if(currentFilter==='done'&&!t.done)return false;
+    return true;
+  });
+
+  const render=(listId, items)=>{
+    const el=document.getElementById(listId); el.innerHTML='';
+    if(!items.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">Sin tareas aquí</div></div>'; return; }
+    items.forEach(t=>el.appendChild(makeCard(t)));
+  };
+
+  render('list-hoy', filtered.filter(t=>t.date===today).sort((a,b)=>prioVal(b)-prioVal(a)));
+  render('list-semana', filtered.filter(t=>t.date>=wMon&&t.date<=wSun).sort((a,b)=>a.date.localeCompare(b.date)||prioVal(b)-prioVal(a)));
+
+  // AGENDA
+  const ag=document.getElementById('agenda-grid'); ag.innerHTML='';
+  const dates=[...new Set(tasks.filter(t=>t.date>=today).map(t=>t.date))].sort().slice(0,14);
+  if(!dates.length){ ag.innerHTML='<div class="empty-state"><div class="empty-icon">🗓</div><div class="empty-text">No hay tareas agendadas</div></div>'; }
+  dates.forEach(date=>{
+    const dayTasks=tasks.filter(t=>t.date===date).sort((a,b)=>prioVal(b)-prioVal(a));
+    const isToday=date===today;
+    const block=document.createElement('div'); block.className='agenda-day';
+    block.innerHTML=`<div class="agenda-day-head"><div class="agenda-day-name${isToday?' today-head':''}">${isToday?'Hoy — ':fmtDayName(date)+' '}${fmtDate(date)}</div><div class="agenda-day-count">${dayTasks.length} tarea${dayTasks.length!==1?'s':''}</div></div>`;
+    const body=document.createElement('div'); body.className='tasks-list'; body.style.padding='8px';
+    dayTasks.forEach(t=>body.appendChild(makeCard(t)));
+    block.appendChild(body); ag.appendChild(block);
+  });
+
+  // BACKLOG
+  const cutoff=offsetDate(today,14);
+  const blTasks=filtered.filter(t=>!t.date||(t.date>cutoff));
+  const blBody=document.getElementById('backlog-body'); blBody.innerHTML='';
+  const byPrio={high:[],med:[],low:[]};
+  blTasks.forEach(t=>(byPrio[t.prio]||byPrio.low).push(t));
+  [['high','Alta prioridad'],['med','Media prioridad'],['low','Baja prioridad']].forEach(([p,label])=>{
+    if(!byPrio[p].length)return;
+    const sec=document.createElement('div'); sec.className='bl-section';
+    sec.innerHTML=`<div class="bl-head"><div class="bl-head-title">${label}</div><div class="bl-count">${byPrio[p].length}</div></div>`;
+    const list=document.createElement('div'); list.className='tasks-list';
+    byPrio[p].forEach(t=>list.appendChild(makeCard(t)));
+    sec.appendChild(list); blBody.appendChild(sec);
+  });
+  if(!blTasks.length) blBody.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">El backlog está vacío</div></div>';
+
+  // STATS
+  const all=tasks;
+  const done=all.filter(t=>t.done).length;
+  const pct=all.length?Math.round(all.reduce((s,t)=>s+(t.pct||0),0)/all.length):0;
+  document.getElementById('st-total').textContent=all.length;
+  document.getElementById('st-done').textContent=done;
+  document.getElementById('st-pend').textContent=all.length-done;
+  document.getElementById('st-pct').textContent=pct+'%';
+  const bd=document.getElementById('cat-breakdown');
+  bd.innerHTML='<div style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px">Por categoría</div>';
+  ['Cenicaña','Maestría','Búsqueda empleo','Personal','Otro'].forEach(cat=>{
+    const ct=all.filter(t=>t.cat===cat); if(!ct.length)return;
+    const cp=Math.round(ct.reduce((s,t)=>s+(t.pct||0),0)/ct.length);
+    const row=document.createElement('div'); row.className='cat-row';
+    row.innerHTML=`<div class="cat-name">${cat} <span style="color:#aaa;font-size:11px">(${ct.length})</span></div>
+    <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${cp}%;background:${CAT_COLORS[cat]||'#888'}"></div></div>
+    <div class="cat-pct">${cp}%</div>`;
+    bd.appendChild(row);
+  });
+
+  // NAV COUNTS
+  document.getElementById('nc-hoy').textContent=tasks.filter(t=>t.date===today&&!t.done).length;
+  document.getElementById('nc-semana').textContent=tasks.filter(t=>t.date>=wMon&&t.date<=wSun&&!t.done).length;
+  document.getElementById('nc-agenda').textContent=tasks.filter(t=>t.date>=today).length;
+  document.getElementById('nc-backlog').textContent=tasks.filter(t=>!t.date||(t.date>cutoff)).length;
+  document.getElementById('ss-hoy').textContent=tasks.filter(t=>t.date===today&&t.done).length;
+  document.getElementById('ss-pct').textContent=pct+'%';
+  document.getElementById('ss-bar').style.width=pct+'%';
+}
+
+// ── ACTIONS ────────────────────────────────────────────────────────────────
+function toggleDone(id, wasDone){
+  const newDone = !wasDone;
+  updateTask(id, {done:newDone, pct:newDone?100:undefined});
+}
+
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.view.active .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderAll();
+}
+
+function filterCat(cat){
+  currentCatFilter=cat; showView('backlog');
+  setTimeout(()=>{ const s=document.getElementById('bl-cat'); if(s)s.value=cat; renderAll(); },50);
+}
+
+function showView(v){
+  currentView=v;
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  const titles={hoy:'Hoy',semana:'Esta semana',agenda:'Agenda',backlog:'Backlog completo',stats:'Estadísticas'};
+  document.getElementById('topbar-title').textContent=titles[v]||v;
+  const navMap={hoy:0,semana:1,agenda:2,backlog:3,stats:4};
+  document.querySelectorAll('.nav-btn')[navMap[v]]?.classList.add('active');
+  renderAll();
+}
+
+function openModal(id){
+  editingId=id||null;
+  const t=id?tasks.find(t=>t.id===id):null;
+  document.getElementById('modal-title').textContent=id?'Editar tarea':'Nueva tarea';
+  document.getElementById('m-name').value=t?t.name:'';
+  document.getElementById('m-cat').value=t?t.cat:'Cenicaña';
+  document.getElementById('m-prio').value=t?t.prio:'med';
+  document.getElementById('m-date').value=t?t.date:todayStr();
+  document.getElementById('m-pct').value=t?t.pct:0;
+  document.getElementById('m-pct-lbl').textContent=(t?t.pct:0)+'%';
+  document.getElementById('m-notes').value=t?t.notes:'';
+  document.getElementById('btn-delete-modal').style.display=id?'':'none';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('m-name').focus(),50);
+}
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModalOverlay(e){ if(e.target===document.getElementById('modal-overlay'))closeModal(); }
+document.getElementById('m-pct').addEventListener('input',function(){ document.getElementById('m-pct-lbl').textContent=this.value+'%'; });
+
+function saveTask(){
+  const name=document.getElementById('m-name').value.trim();
+  if(!name){ document.getElementById('m-name').focus(); return; }
+  const pct=parseInt(document.getElementById('m-pct').value);
+  const data={name, cat:document.getElementById('m-cat').value, prio:document.getElementById('m-prio').value,
+    date:document.getElementById('m-date').value, pct, done:pct===100, notes:document.getElementById('m-notes').value.trim()};
+  closeModal();
+  if(editingId) updateTask(editingId, data);
+  else createTask(data);
+}
+
+function deleteFromModal(){
+  if(!editingId)return;
+  closeModal();
+  deleteTask(editingId);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeModal();
+  if(e.key==='Enter'&&document.getElementById('modal-overlay').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA') saveTask();
+  if(e.key==='n'&&!document.getElementById('modal-overlay').classList.contains('open')&&document.activeElement.tagName==='BODY') openModal();
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+const now=new Date();
+const days=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const months=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+document.getElementById('topbar-date').textContent=`${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+document.getElementById('config-banner').classList.remove('show');
+initSupabase();
+</script>
+</body>
+</html>
