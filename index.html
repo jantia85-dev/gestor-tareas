@@ -128,6 +128,22 @@ input.config-input{width:100%;height:34px;border:0.5px solid #FAC775;border-radi
 .cat-bar-fill{height:8px;border-radius:4px;transition:width .4s}
 .cat-pct{font-size:12px;color:#888;min-width:36px;text-align:right}
 
+/* HISTORIAL */
+.hist-month-block{margin-bottom:28px}
+.hist-month-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:0.5px solid #e0e0e0}
+.hist-month-title{font-size:13px;font-weight:600;color:#1a1a1a;text-transform:capitalize}
+.hist-month-count{font-size:11px;color:#fff;background:#3B6D11;padding:2px 9px;border-radius:20px;font-weight:600}
+.hist-summary-bar{margin-bottom:20px;background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;padding:16px 20px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+.hist-kpi{text-align:center}
+.hist-kpi-num{font-size:22px;font-weight:700;color:#185FA5;line-height:1.1}
+.hist-kpi-lbl{font-size:11px;color:#888;margin-top:2px}
+.hist-kpi-green .hist-kpi-num{color:#3B6D11}
+.hist-divider{width:0.5px;height:40px;background:#e0e0e0}
+.hist-empty{text-align:center;padding:48px 24px;color:#bbb}
+.hist-empty-icon{font-size:40px;margin-bottom:12px}
+.hist-empty-text{font-size:14px}
+.completed-badge{font-size:10px;padding:2px 8px;border-radius:20px;background:#EAF3DE;color:#27500A;font-weight:600}
+
 /* EMPTY */
 .empty-state{text-align:center;padding:48px 24px;color:#bbb}
 .empty-icon{font-size:40px;margin-bottom:12px}
@@ -175,6 +191,9 @@ textarea{height:70px;padding:8px 10px;resize:none}
     <button class="nav-btn" onclick="showView('backlog')">
       <span>📋</span> Backlog <span class="nav-count" id="nc-backlog">0</span>
     </button>
+    <button class="nav-btn" onclick="showView('historial')">
+      <span>🏆</span> Historial <span class="nav-count" id="nc-historial">0</span>
+    </button>
     <button class="nav-btn" onclick="showView('stats')">
       <span>📊</span> Estadísticas
     </button>
@@ -198,7 +217,7 @@ textarea{height:70px;padding:8px 10px;resize:none}
   <div class="topbar">
     <div class="topbar-title" id="topbar-title">Hoy</div>
     <div class="topbar-date" id="topbar-date"></div>
-    <button class="btn btn-primary" onclick="openModal()">+ Nueva tarea</button>
+    <button class="btn btn-primary" id="btn-nueva" onclick="openModal()">+ Nueva tarea</button>
   </div>
   <div class="content">
 
@@ -260,6 +279,26 @@ textarea{height:70px;padding:8px 10px;resize:none}
         </select>
       </div>
       <div id="backlog-body"></div>
+    </div>
+
+    <!-- VIEW: HISTORIAL -->
+    <div class="view" id="view-historial">
+      <div class="filters">
+        <select class="filter-select" onchange="renderHistorial()" id="hist-cat-filter">
+          <option value="">Todas las categorías</option>
+          <option>Cenicaña</option><option>Maestría</option>
+          <option>Búsqueda empleo</option><option>Personal</option><option>Otro</option>
+        </select>
+        <select class="filter-select" onchange="renderHistorial()" id="hist-prio-filter">
+          <option value="">Todas las prioridades</option>
+          <option value="high">Alta</option>
+          <option value="med">Media</option>
+          <option value="low">Baja</option>
+        </select>
+        <input class="search-input" type="text" placeholder="Buscar en historial..." oninput="renderHistorial()" id="hist-search">
+      </div>
+      <div id="hist-summary-bar" class="hist-summary-bar"></div>
+      <div id="historial-body"></div>
     </div>
 
     <!-- VIEW: STATS -->
@@ -434,7 +473,6 @@ async function initSupabase(){
     setSyncStatus('err','Sin configurar');
     loadLocal(); return;
   }
-  // Ensure table exists via check — if fails, show setup instructions
   try{
     await fetchTasks();
   }catch(e){
@@ -475,6 +513,7 @@ function seedData(){
 // ── RENDER ─────────────────────────────────────────────────────────────────
 const CATS = {'Cenicaña':'tag-cenicana','Maestría':'tag-maestria','Personal':'tag-personal','Búsqueda empleo':'tag-empleo','Otro':'tag-otro'};
 const PRIO_COLORS = {high:'prio-high',med:'prio-med',low:'prio-low'};
+const PRIO_LABELS = {high:'Alta',med:'Media',low:'Baja'};
 const CAT_COLORS = {'Cenicaña':'#185FA5','Maestría':'#854F0B','Personal':'#3B6D11','Búsqueda empleo':'#533FB7','Otro':'#5F5E5A'};
 
 function fmtDate(str){
@@ -482,6 +521,18 @@ function fmtDate(str){
   const [y,m,d]=str.split('-');
   const months=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   return `${parseInt(d)} ${months[parseInt(m)-1]}`;
+}
+function fmtDateFull(str){
+  if(!str)return'Sin fecha';
+  const [y,m,d]=str.split('-');
+  const months=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return `${parseInt(d)} de ${months[parseInt(m)-1]} de ${y}`;
+}
+function fmtMonthYear(str){
+  if(!str)return'Sin fecha';
+  const [y,m]=str.split('-');
+  const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `${months[parseInt(m)-1]} ${y}`;
 }
 function fmtDayName(str){
   if(!str)return'';
@@ -530,6 +581,105 @@ function makeCard(t){
       <button class="icon-btn edit-btn" onclick="openModal('${t.id}')" title="Editar">✏️</button>
     </div>`;
   return card;
+}
+
+// ── HISTORIAL RENDER ────────────────────────────────────────────────────────
+function renderHistorial(){
+  const catF = (document.getElementById('hist-cat-filter')||{value:''}).value;
+  const prioF = (document.getElementById('hist-prio-filter')||{value:''}).value;
+  const search = ((document.getElementById('hist-search')||{value:''}).value||'').toLowerCase();
+
+  const completed = tasks.filter(t=>{
+    if(!t.done) return false;
+    if(catF && t.cat !== catF) return false;
+    if(prioF && t.prio !== prioF) return false;
+    if(search && !t.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Summary bar
+  const summaryBar = document.getElementById('hist-summary-bar');
+  const catCounts = {};
+  completed.forEach(t=>{ catCounts[t.cat]=(catCounts[t.cat]||0)+1; });
+  const topCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0];
+  summaryBar.innerHTML = `
+    <div class="hist-kpi hist-kpi-green"><div class="hist-kpi-num">${completed.length}</div><div class="hist-kpi-lbl">Completadas</div></div>
+    <div class="hist-divider"></div>
+    <div class="hist-kpi"><div class="hist-kpi-num">${completed.filter(t=>t.prio==='high').length}</div><div class="hist-kpi-lbl">Alta prioridad</div></div>
+    <div class="hist-divider"></div>
+    <div class="hist-kpi"><div class="hist-kpi-num">${topCat?topCat[1]:0}</div><div class="hist-kpi-lbl">${topCat?topCat[0]:'—'} (más activa)</div></div>
+    <div class="hist-divider"></div>
+    <div class="hist-kpi"><div class="hist-kpi-num" style="font-size:16px;color:#555">${[...new Set(completed.map(t=>t.cat))].join(' · ')||'—'}</div><div class="hist-kpi-lbl">Categorías</div></div>
+  `;
+
+  const body = document.getElementById('historial-body');
+  body.innerHTML = '';
+
+  if(!completed.length){
+    body.innerHTML = `<div class="hist-empty"><div class="hist-empty-icon">🏆</div><div class="hist-empty-text">No hay tareas completadas aún.<br>¡Marca tu primera tarea como hecha!</div></div>`;
+    return;
+  }
+
+  // Agrupar por mes (usando la fecha de la tarea; si no tiene fecha, usar "Sin fecha")
+  const byMonth = {};
+  completed.forEach(t=>{
+    const key = t.date ? t.date.substring(0,7) : 'sin-fecha';
+    if(!byMonth[key]) byMonth[key]=[];
+    byMonth[key].push(t);
+  });
+
+  // Ordenar meses de más reciente a más antiguo
+  const sortedMonths = Object.keys(byMonth).sort((a,b)=>b.localeCompare(a));
+
+  sortedMonths.forEach(monthKey=>{
+    const monthTasks = byMonth[monthKey].sort((a,b)=>{
+      // Dentro del mes: por fecha desc, luego prioridad
+      if(a.date && b.date) return b.date.localeCompare(a.date);
+      return prioVal(b)-prioVal(a);
+    });
+    const label = monthKey==='sin-fecha' ? 'Sin fecha registrada' : fmtMonthYear(monthKey+'-01');
+
+    const block = document.createElement('div');
+    block.className = 'hist-month-block';
+    block.innerHTML = `
+      <div class="hist-month-head">
+        <div class="hist-month-title">${label}</div>
+        <div class="hist-month-count">${monthTasks.length} completada${monthTasks.length!==1?'s':''}</div>
+      </div>`;
+
+    const list = document.createElement('div');
+    list.className = 'tasks-list';
+
+    monthTasks.forEach(t=>{
+      const card = document.createElement('div');
+      card.className = 'task-card done-card';
+      card.style.cursor = 'default';
+      card.innerHTML = `
+        <div class="check-box checked" onclick="toggleDone('${t.id}',${t.done})" title="Marcar como pendiente">
+          <svg class="check-svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <polyline points="2,6 5,9 10,3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="prio-bar ${PRIO_COLORS[t.prio]||'prio-low'}"></div>
+        <div class="task-body">
+          <div class="task-name" title="${t.name}">${t.name}</div>
+          <div class="task-meta">
+            <span class="tag-pill ${CATS[t.cat]||'tag-otro'}">${t.cat}</span>
+            <span class="completed-badge">✓ Completada</span>
+            ${t.date?`<span class="date-label">${fmtDateFull(t.date)}</span>`:''}
+            ${t.notes?`<span style="font-size:10px;color:#bbb" title="${t.notes}">📝</span>`:''}
+          </div>
+        </div>
+        <div class="task-actions">
+          <span style="font-size:11px;color:#888;padding-right:4px">${PRIO_LABELS[t.prio]||''}</span>
+          <button class="icon-btn edit-btn" onclick="openModal('${t.id}')" title="Ver / editar">✏️</button>
+        </div>`;
+      list.appendChild(card);
+    });
+
+    block.appendChild(list);
+    body.appendChild(block);
+  });
 }
 
 function renderAll(){
@@ -586,6 +736,9 @@ function renderAll(){
   });
   if(!blTasks.length) blBody.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">El backlog está vacío</div></div>';
 
+  // HISTORIAL — re-render si está activa
+  if(currentView==='historial') renderHistorial();
+
   // STATS
   const all=tasks;
   const done=all.filter(t=>t.done).length;
@@ -611,6 +764,7 @@ function renderAll(){
   document.getElementById('nc-semana').textContent=tasks.filter(t=>t.date>=wMon&&t.date<=wSun&&!t.done).length;
   document.getElementById('nc-agenda').textContent=tasks.filter(t=>t.date>=today).length;
   document.getElementById('nc-backlog').textContent=tasks.filter(t=>!t.date||(t.date>cutoff)).length;
+  document.getElementById('nc-historial').textContent=tasks.filter(t=>t.done).length;
   document.getElementById('ss-hoy').textContent=tasks.filter(t=>t.date===today&&t.done).length;
   document.getElementById('ss-pct').textContent=pct+'%';
   document.getElementById('ss-bar').style.width=pct+'%';
@@ -638,11 +792,14 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  const titles={hoy:'Hoy',semana:'Esta semana',agenda:'Agenda',backlog:'Backlog completo',stats:'Estadísticas'};
+  const titles={hoy:'Hoy',semana:'Esta semana',agenda:'Agenda',backlog:'Backlog completo',historial:'Historial de completadas',stats:'Estadísticas'};
   document.getElementById('topbar-title').textContent=titles[v]||v;
-  const navMap={hoy:0,semana:1,agenda:2,backlog:3,stats:4};
+  // Ocultar botón "Nueva tarea" en historial
+  document.getElementById('btn-nueva').style.display = v==='historial' ? 'none' : '';
+  const navMap={hoy:0,semana:1,agenda:2,backlog:3,historial:4,stats:5};
   document.querySelectorAll('.nav-btn')[navMap[v]]?.classList.add('active');
-  renderAll();
+  if(v==='historial') renderHistorial();
+  else renderAll();
 }
 
 function openModal(id){
